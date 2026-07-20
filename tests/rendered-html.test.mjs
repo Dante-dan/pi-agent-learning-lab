@@ -1,11 +1,6 @@
 import assert from "node:assert/strict";
-import { access, readFile, readdir } from "node:fs/promises";
+import { access, readFile } from "node:fs/promises";
 import test from "node:test";
-
-const developmentPreviewMeta =
-  /<meta(?=[^>]*\bname=["']codex-preview["'])(?=[^>]*\bcontent=["']development["'])[^>]*>/i;
-const templateRoot = new URL("../", import.meta.url);
-const previewRoot = new URL("../app/_sites-preview/", import.meta.url);
 
 async function render() {
   const workerUrl = new URL("../dist/server/index.js", import.meta.url);
@@ -28,64 +23,61 @@ async function render() {
   );
 }
 
-test("server-renders the starter loading skeleton", async () => {
+test("server-renders the scenario-led Pi curriculum", async () => {
   const response = await render();
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
 
   const html = await response.text();
-  assert.match(html, developmentPreviewMeta);
-  assert.match(html, /<title>Your site is taking shape<\/title>/i);
-  assert.match(html, /Building your site/);
-  assert.match(html, /Your site is taking shape/);
-  assert.match(
-    html,
-    /Your first version will appear here automatically when it’s ready\./,
-  );
-  assert.doesNotMatch(html, /Codex/);
-  assert.match(html, /react-loading-skeleton/);
-  assert.match(html, /role="status"/);
+  assert.match(html, /<title>Pi Agent 学习实验室<\/title>/i);
+  assert.match(html, /假设你刚接手一个项目，parser 测试失败了/);
+  assert.match(html, /一次 Prompt 的旅程/);
+  assert.match(html, /Agent Loop 与完成判定/);
+  assert.match(html, /Tools 与真正的安全边界/);
+  assert.match(html, /任务成功不是/);
+  assert.doesNotMatch(html, /Your site is taking shape|Building your site/);
 });
 
-test("keeps the loading skeleton scoped and disposable", async () => {
-  const [preview, css, page, layout, packageJson, files] = await Promise.all([
-    readFile(new URL("SkeletonPreview.tsx", previewRoot), "utf8"),
-    readFile(new URL("preview.css", previewRoot), "utf8"),
-    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
-    readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
-    readFile(new URL("../package.json", import.meta.url), "utf8"),
-    readdir(previewRoot),
-  ]);
+test("examples and learning artifacts track the verified Pi API", async () => {
+  const [rootPackageSource, minimalSession, architecture, lifecycle, security, memory] =
+    await Promise.all([
+      readFile(new URL("../package.json", import.meta.url), "utf8"),
+      readFile(new URL("../sdk/minimal-session.ts", import.meta.url), "utf8"),
+      readFile(new URL("../docs/architecture.md", import.meta.url), "utf8"),
+      readFile(new URL("../docs/prompt-lifecycle.md", import.meta.url), "utf8"),
+      readFile(new URL("../docs/tools-security.md", import.meta.url), "utf8"),
+      readFile(new URL("../docs/sessions-memory.md", import.meta.url), "utf8"),
+    ]);
 
-  assert.deepEqual(files.sort(), ["SkeletonPreview.tsx", "preview.css"]);
-  assert.match(preview, /from "react-loading-skeleton"/);
-  assert.match(preview, /baseColor="#eceae7"/);
-  assert.match(preview, /highlightColor="#f9f8f6"/);
-  assert.match(preview, /duration=\{2\.8\}/);
-  assert.match(preview, /sites-skeleton-search-placeholder/);
-  assert.match(packageJson, /"react-loading-skeleton": "3\.5\.0"/);
+  const rootPackage = JSON.parse(rootPackageSource);
+  assert.equal(rootPackage.engines.node, ">=22.19.0");
+  for (const dependency of [
+    "@earendil-works/pi-ai",
+    "@earendil-works/pi-agent-core",
+    "@earendil-works/pi-coding-agent",
+  ]) {
+    assert.equal(rootPackage.devDependencies[dependency], "0.80.10");
+  }
+  assert.equal(rootPackage.devDependencies.typebox, "1.1.38");
 
-  const shellIndex = preview.indexOf('className="sites-skeleton-shell"');
-  const statusIndex = preview.indexOf('className="sites-skeleton-status"');
-  assert.ok(shellIndex >= 0 && statusIndex > shellIndex);
-  assert.match(css, /position:\s*fixed/);
-  assert.match(css, /inset:\s*0/);
-  assert.match(css, /opacity:\s*0\.52/);
-  assert.match(css, /prefers-reduced-motion:\s*reduce/);
-  assert.doesNotMatch(css, /#020617|canvas|pets|progress/i);
-  assert.doesNotMatch(
-    preview,
-    /loading-spinner|status-mark|status-progress|canvas|cookie|random/i,
-  );
+  assert.match(minimalSession, /ModelRuntime\.create\(\)/);
+  assert.match(minimalSession, /SessionManager\.inMemory\(\)/);
+  assert.doesNotMatch(minimalSession, /AuthStorage|ModelRegistry\.create/);
 
-  assert.match(page, /export const metadata:\s*Metadata/);
-  assert.match(page, /"codex-preview": "development"/);
-  assert.match(page, /<SkeletonPreview \/>/);
-  assert.match(layout, /title:\s*"Starter Project"/);
-  assert.doesNotMatch(layout, /codex-preview|_sites-preview|themeColor|\bViewport\b/);
-  assert.doesNotMatch(css, /(^|\s)(html|body)\s*\{/m);
+  assert.match(architecture, /普通按键不会逐字调用 LLM/);
+  assert.match(architecture, /agent_end[\s\S]*agent_settled[\s\S]*业务验收/);
+  assert.match(lifecycle, /顺序、条件、循环、并行/);
+  assert.match(security, /不是安全沙箱/);
+  assert.match(memory, /JSONL Session 不是聊天数组/);
 
-  await assert.rejects(
-    access(new URL("public/_sites-preview", templateRoot)),
+  await Promise.all(
+    [
+      "../sdk/acceptance-worker.ts",
+      "../sdk/rpc-client.ts",
+      "../examples/toy-parser/parser.test.ts",
+      "../package/extensions/parser-inspector.ts",
+      "../package/skills/verify-code/SKILL.md",
+      "../package/prompts/fix-parser.md",
+    ].map((path) => access(new URL(path, import.meta.url))),
   );
 });

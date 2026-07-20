@@ -1,16 +1,15 @@
 import {
-  AuthStorage,
   createAgentSession,
-  ModelRegistry,
+  ModelRuntime,
   SessionManager,
 } from "@earendil-works/pi-coding-agent";
 
-const authStorage = AuthStorage.create();
-const modelRegistry = ModelRegistry.create(authStorage);
+// ModelRuntime 统一处理 models.json、auth.json、环境变量和运行时凭证。
+const modelRuntime = await ModelRuntime.create();
 const { session } = await createAgentSession({
   sessionManager: SessionManager.inMemory(),
-  authStorage,
-  modelRegistry,
+  modelRuntime,
+  tools: ["read", "grep", "find", "ls"],
 });
 
 const unsubscribe = session.subscribe((event) => {
@@ -19,7 +18,10 @@ const unsubscribe = session.subscribe((event) => {
   }
 });
 
-await session.prompt("Summarize the current repository");
-unsubscribe();
-session.dispose();
-
+try {
+  // prompt() 在请求被接受后，会等待本次 Agent 运行（包括自动重试）结束。
+  await session.prompt("阅读当前仓库，并用五句话说明它的结构");
+} finally {
+  unsubscribe();
+  session.dispose();
+}
